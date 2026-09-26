@@ -5,7 +5,7 @@ import {validateFiles} from './core/validate';
 import {getCustomers,upsertCustomer} from './core/customers';
 import {addHistory,listHistory,getHistory} from './storage/history';
 
-const labels={company:'Company',invoice_number:'Invoice Number',packing_list_number:'Packing List Number',surat_jalan:'Surat Jalan',total_cif:'Total CIF',item_price:'Harga Barang',total_gw:'Total Gross Weight (GW)',total_nw:'Total Net Weight (NW)',package:'Kemasan',item_gw:'GW per Item',item_nw:'NW per Item',item_code:'Item Code',item_name:'Item Name',quantity:'Quantity'};
+const labels={company:'Company',invoice_number:'Invoice Number',packing_list_number:'Packing List Number',surat_jalan:'Surat Jalan',total_cif:'Total Harga / CIF',item_price:'Harga per Item',total_gw:'Total Gross Weight (GW)',total_nw:'Total Net Weight (NW)',package:'Kemasan',item_gw:'GW per Item',item_nw:'NW per Item',item_code:'Item Code',item_name:'Item Name',quantity:'Quantity'};
 const docLabels={invoice:'Invoice',packing_list:'Packing List',surat_jalan:'Surat Jalan',draft_exim:'Draft CEISA'};
 
 function App(){

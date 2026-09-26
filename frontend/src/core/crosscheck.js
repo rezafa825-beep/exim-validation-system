@@ -55,7 +55,7 @@ export function crosscheck(invoice,pl,draft,sj=null){
   checks.packing_list_number=status(pl.packing_list_no,draft.packing_list_no);
   checks.surat_jalan=status(sj?.surat_jalan || invoice.surat_jalan,draft.surat_jalan);
   const totalInv=invoice.total_cif_by_currency?.[invoice.total_cif_currency] ?? invoice.total_cif;
-  const totalDraft=draft.total_cif_by_currency?.[invoice.total_cif_currency];
+  const totalDraft=draft.total_cif_by_currency?.[invoice.total_cif_currency] ?? draft.total_cif;
   checks.total_cif=totalDraft!==null&&totalDraft!==undefined&&eq(totalInv,totalDraft)?'MATCH':'NOT MATCH';
   checks.total_gw=eq(pl.total_gw,draft.total_gw)?'MATCH':'NOT MATCH';
   checks.total_nw=eq(pl.total_nw,draft.total_nw)?'MATCH':'NOT MATCH';
