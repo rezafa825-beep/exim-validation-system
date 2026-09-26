@@ -62,7 +62,7 @@ export function crosscheck(invoice,pl,draft,sj=null){
   checks.package=normCode(pl.package_type)===normCode(draft.package_type)&&eq(pl.package_quantity,draft.package_quantity)?'MATCH':'NOT MATCH';
 
   const paired=pairItems(invoice.items||[],pl.items||[],draft.items||[]);
-  let codeOk=true,nameOk=true,qtyOk=true,priceOk=true;
+  let codeOk=true,nameOk=true,qtyOk=true,priceOk=true,gwOk=true,nwOk=true;
   const details=[],notes=[];
   paired.forEach((row,i)=>{
     const a=row.inv||{},b=row.pl||{},c=row.draft||{};
@@ -74,15 +74,17 @@ export function crosscheck(invoice,pl,draft,sj=null){
     const invoiceCurrency=a.price?.currency||invoice.total_cif_currency||'USD';
     const ap=pickPrice(a,invoiceCurrency),cp=pickPrice(c,invoiceCurrency);
     const pm=money(ap,cp);
-    codeOk&&=cm; nameOk&&=nm; qtyOk&&=qm; priceOk&&=pm;
+    const gwm=eq(b.gross_weight,c.gross_weight);
+    const nwm=eq(b.net_weight,c.net_weight);
+    codeOk&&=cm; nameOk&&=nm; qtyOk&&=qm; priceOk&&=pm; gwOk&&=gwm; nwOk&&=nwm;
     if(cm&&!nm)notes.push(`Item No. ${i+1}: Item Code sama, tetapi Item Name berbeda.`);
     if(!ca&&cc)notes.push(`Item No. ${i+1}: Item Code Draft tidak ditemukan di Invoice.`);
     if(ca&&!cc)notes.push(`Item No. ${i+1}: Item Code Invoice tidak ditemukan di Draft.`);
     if(ap?.currency&&cp?.currency&&ap.currency!==cp.currency)notes.push(`Item No. ${i+1}: Valuta harga berbeda (${ap.currency} vs ${cp.currency}).`);
-    details.push({sequence:i+1,invoice_code:a.item_code||'',pl_code:b.item_code||'',draft_code:c.item_code||'',invoice_name:a.item_name||'',pl_name:b.item_name||'',draft_name:c.item_name||'',invoice_quantity:a.quantity,draft_quantity:c.quantity,pl_quantity:b.quantity,invoice_price:ap?.value??null,invoice_currency:ap?.currency||'',draft_price:cp?.value??null,draft_currency:cp?.currency||'',item_code_status:cm?'MATCH':'NOT MATCH',item_code_cell_status:{invoice:ca===cc&&!!ca?'MATCH':'NOT MATCH',pl:(!cb||cb===cc)&&!!cc?'MATCH':'NOT MATCH',draft:cm?'MATCH':'NOT MATCH'},item_name_status:nm?'MATCH':'NOT MATCH',item_name_cell_status:{invoice:na===nc&&!!na?'MATCH':'NOT MATCH',pl:(!nb||nb===nc)&&!!nc?'MATCH':'NOT MATCH',draft:nm?'MATCH':'NOT MATCH'},quantity_status:qm?'MATCH':'NOT MATCH',price_status:pm?'MATCH':'NOT MATCH'});
+    details.push({sequence:i+1,invoice_code:a.item_code||'',pl_code:b.item_code||'',draft_code:c.item_code||'',invoice_name:a.item_name||'',pl_name:b.item_name||'',draft_name:c.item_name||'',invoice_quantity:a.quantity,draft_quantity:c.quantity,pl_quantity:b.quantity,invoice_price:ap?.value??null,invoice_currency:ap?.currency||'',draft_price:cp?.value??null,draft_currency:cp?.currency||'',pl_gross_weight:b.gross_weight??null,draft_gross_weight:c.gross_weight??null,pl_net_weight:b.net_weight??null,draft_net_weight:c.net_weight??null,item_code_status:cm?'MATCH':'NOT MATCH',item_code_cell_status:{invoice:ca===cc&&!!ca?'MATCH':'NOT MATCH',pl:(!cb||cb===cc)&&!!cc?'MATCH':'NOT MATCH',draft:cm?'MATCH':'NOT MATCH'},item_name_status:nm?'MATCH':'NOT MATCH',item_name_cell_status:{invoice:na===nc&&!!na?'MATCH':'NOT MATCH',pl:(!nb||nb===nc)&&!!nc?'MATCH':'NOT MATCH',draft:nm?'MATCH':'NOT MATCH'},quantity_status:qm?'MATCH':'NOT MATCH',price_status:pm?'MATCH':'NOT MATCH',gw_status:gwm?'MATCH':'NOT MATCH',nw_status:nwm?'MATCH':'NOT MATCH'});
   });
-  checks.item_code=codeOk?'MATCH':'NOT MATCH'; checks.item_name=nameOk?'MATCH':'NOT MATCH'; checks.quantity=qtyOk?'MATCH':'NOT MATCH'; checks.item_price=priceOk?'MATCH':'NOT MATCH';
-  const decisive=['company','invoice_number','packing_list_number','surat_jalan','total_cif','total_gw','total_nw','package','item_code','item_name','quantity','item_price'];
+  checks.item_code=codeOk?'MATCH':'NOT MATCH'; checks.item_name=nameOk?'MATCH':'NOT MATCH'; checks.quantity=qtyOk?'MATCH':'NOT MATCH'; checks.item_price=priceOk?'MATCH':'NOT MATCH'; checks.item_gw=gwOk?'MATCH':'NOT MATCH'; checks.item_nw=nwOk?'MATCH':'NOT MATCH';
+  const decisive=['company','invoice_number','packing_list_number','surat_jalan','total_cif','total_gw','total_nw','package','item_code','item_name','quantity','item_price','item_gw','item_nw'];
   const mismatches=decisive.filter(k=>checks[k]!=='MATCH');
   return {overall_status:mismatches.length?'NOT MATCH':'MATCH',checks,mismatches,notes,items:details};
 }

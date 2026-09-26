@@ -63,6 +63,16 @@ export function findHeader(rows, required = [], maxRows = 40) {
   return best.row >= 0 ? best : null;
 }
 
+
+export function isHeaderLikeRow(row, headers = {}) {
+  const values = (row || []).map(cleanText).filter(Boolean).map(v => v.toUpperCase());
+  if (!values.length) return true;
+  const headerSet = new Set(Object.keys(headers || {}).map(v => cleanText(v).toUpperCase()));
+  const generic = new Set(['NO','NO.','ITEM NAME','MATERIAL CODE','ITEM CODE','PRODUCT CODE','SKU','STYLE','QTY','QUANTITY','UNIT','KEMASAN','GW','NW','GROSS WEIGHT','NET WEIGHT','WEIGHT','AMOUNT','AMOUNT (IDR)','SURAT JALAN']);
+  const hits = values.filter(v => headerSet.has(v) || generic.has(v)).length;
+  return hits >= 2;
+}
+
 export function resolveColumn(headers, mapping, field) {
   const target = mapping?.[field] || {};
   const candidates = [target.primary, ...(target.alternatives || [])].filter(Boolean);
