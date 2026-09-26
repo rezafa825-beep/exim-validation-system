@@ -16,20 +16,26 @@ export function parseInvoice(fileData, mapping, sheetName) {
   if (!chosen?.sheet || !chosen?.h) throw new Error('Header Invoice tidak ditemukan.');
   const { sheet, h } = chosen;
   const headers = h.headers;
-  const cCode=resolveColumn(headers,mapping,'ITEM_CODE'), cName=resolveColumn(headers,mapping,'ITEM_NAME'), cQty=resolveColumn(headers,mapping,'QUANTITY'), cAmt=resolveColumn(headers,mapping,'AMOUNT'), cSj=resolveColumn(headers,mapping,'SURAT_JALAN'), cInv=resolveColumn(headers,mapping,'INVOICE_NUMBER');
+  const cCode=resolveColumn(headers,mapping,'ITEM_CODE'), cName=resolveColumn(headers,mapping,'ITEM_NAME'), cQty=resolveColumn(headers,mapping,'QUANTITY'), cAmt=resolveColumn(headers,mapping,'AMOUNT'), cAmtUsd=headers['AMOUNT']!==undefined?headers['AMOUNT']:null, cAmtIdr=headers['AMOUNT (IDR)']!==undefined?headers['AMOUNT (IDR)']:null, cSj=resolveColumn(headers,mapping,'SURAT_JALAN'), cInv=resolveColumn(headers,mapping,'INVOICE_NUMBER');
   const items=[]; let total=0, surat='', inv='';
   for (let r=h.row+1;r<sheet.rows.length;r++) {
     const row=sheet.rows[r]||[]; const name=cleanText(cName!==null?row[cName]:'');
     if (!name) continue;
     const qty=toNumber(cQty!==null?row[cQty]:null), amt=toNumber(cAmt!==null?row[cAmt]:null);
-    items.push({sequence:items.length+1,item_code:cleanText(cCode!==null?row[cCode]:''),item_name:name,quantity:qty,amount:amt});
+    const usd=toNumber(cAmtUsd!==null?row[cAmtUsd]:null), idr=toNumber(cAmtIdr!==null?row[cAmtIdr]:null);
+    const headerText=cleanText(headers[cAmt]!==undefined?Object.keys(headers).find(k=>headers[k]===cAmt):'').toUpperCase();
+    const currency=headerText.includes('IDR')||headerText.includes('RUPIAH')?'IDR':'USD';
+    items.push({sequence:items.length+1,item_code:cleanText(cCode!==null?row[cCode]:''),item_name:name,quantity:qty,amount:amt,price:{value:amt,currency},prices:{USD:usd,IDR:idr},price_usd:usd,price_idr:idr});
     total += amt || 0;
     if (cSj!==null && cleanText(row[cSj])) surat=cleanText(row[cSj]);
     if (cInv!==null && cleanText(row[cInv])) inv=cleanText(row[cInv]);
   }
   if (!inv) inv=findInlineValue(sheet.rows,['INVOICE NO','INVOICE NUMBER']);
   if (!surat) surat=findInlineValue(sheet.rows,['SURAT JALAN','SURAT']);
-  return {document_type:'invoice',invoice_no:inv,surat_jalan:surat,items,total_cif:total,...extractParties(sheet.rows)};
+  const totalCurrency = items[0]?.price?.currency || (String(mapping?.AMOUNT?.primary||'').toUpperCase().includes('IDR') ? 'IDR' : 'USD');
+  const totalUsd = items.reduce((v,x)=>v+(x.prices?.USD ?? 0),0);
+  const totalIdr = items.reduce((v,x)=>v+(x.prices?.IDR ?? 0),0);
+  return {document_type:'invoice',invoice_no:inv,surat_jalan:surat,items,total_cif:total,total_cif_currency:totalCurrency,total_cif_by_currency:{USD:totalUsd,IDR:totalIdr},...extractParties(sheet.rows)};
 }
 
 export function parsePackingList(fileData, mapping, rowRule, sheetName) {
@@ -87,7 +93,7 @@ export function parseDraft(fileData) {
   if(!receiver)receiver=cleanText(ent.rows[3]?.[5]||'');if(!sender)sender=cleanText(ent.rows[1]?.[5]||'');
   const docs={};if(dok){for(const row of dok.rows){for(let i=0;i<row.length;i++){const v=cleanText(row[i]);if(['380','217','640'].includes(v)&&row[i+1])docs[v]=cleanText(row[i+1]);}}}
   const items=[];let cif=0,gw=0,nw=0;
-  if(bar){const bh=findHeader(bar.rows,['KODE BARANG'],10);if(bh){const H=bh.headers,cCode=H['KODE BARANG'],cName=H['URAIAN BARANG']??H['URAIAN']??H['DESCRIPTION'],cQty=H['JUMLAH SATUAN'],cAmt=H['HARGA PENYERAHAN'],cBruto=H['BRUTO'],cNetto=H['NETTO'];for(let r=bh.row+1;r<bar.rows.length;r++){const row=bar.rows[r]||[],code=cleanText(row[cCode]);if(!code)continue;const amt=toNumber(cAmt!==undefined?row[cAmt]:null),b=toNumber(cBruto!==undefined?row[cBruto]:null),n=toNumber(cNetto!==undefined?row[cNetto]:null);items.push({sequence:items.length+1,item_code:code,item_name:cleanText(cName!==undefined?row[cName]:''),quantity:toNumber(cQty!==undefined?row[cQty]:null)});cif+=amt||0;gw+=b||0;nw+=n||0;}}}
+  if(bar){const bh=findHeader(bar.rows,['KODE BARANG'],10);if(bh){const H=bh.headers,cCode=H['KODE BARANG'],cName=H['URAIAN BARANG']??H['URAIAN']??H['DESCRIPTION'],cQty=H['JUMLAH SATUAN'],cAmt=H['HARGA PENYERAHAN'],cBruto=H['BRUTO'],cNetto=H['NETTO'],cCifUsd=H['CIF'],cCifIdr=H['CIF RUPIAH'];for(let r=bh.row+1;r<bar.rows.length;r++){const row=bar.rows[r]||[],code=cleanText(row[cCode]);if(!code)continue;const amt=toNumber(cAmt!==undefined?row[cAmt]:null),b=toNumber(cBruto!==undefined?row[cBruto]:null),n=toNumber(cNetto!==undefined?row[cNetto]:null);const name=cleanText(cName!==undefined?row[cName]:'');const qty=toNumber(cQty!==undefined?row[cQty]:null);const cifUsd=toNumber(cCifUsd!==undefined?row[cCifUsd]:null),cifIdr=toNumber(cCifIdr!==undefined?row[cCifIdr]:null),hargaPenyerahan=amt; items.push({sequence:items.length+1,item_code:code,item_name:name,quantity:qty,price:{value:hargaPenyerahan,currency:'IDR'},prices:{USD:cifUsd,IDR:(cifIdr!==null?cifIdr:hargaPenyerahan)},cif_usd:cifUsd,cif_idr:cifIdr,harga_penyerahan:hargaPenyerahan}); cif+=hargaPenyerahan||0;gw+=b||0;nw+=n||0;}}}
   let packageType='',packageQty=0;if(kem){const kh=findHeader(kem.rows,['KODE KEMASAN','JUMLAH KEMASAN'],10)||findHeader(kem.rows,['KEMASAN','JUMLAH'],10);if(kh){const ct=kh.headers['KODE KEMASAN']??kh.headers['JENIS KEMASAN']??kh.headers['KEMASAN'],cq=kh.headers['JUMLAH KEMASAN']??kh.headers['JUMLAH']??kh.headers['QTY'];for(let r=kh.row+1;r<kem.rows.length;r++){const row=kem.rows[r]||[],t=cleanText(row[ct]),q=toNumber(row[cq]);if(t&&q!==null&&!['KEMASAN','KODE KEMASAN'].includes(t.toUpperCase())){packageType=t;packageQty=Math.trunc(q);}}}}
-  return {document_type:'draft_exim',company_sender:sender,company_receiver:receiver,invoice_no:docs['380']||'',packing_list_no:docs['217']||'',surat_jalan:docs['640']||'',items,total_cif:cif,total_gw:gw,total_nw:nw,package_type:packageType,package_quantity:packageQty};
+  const totalCifUsd=items.reduce((v,x)=>v+(x.cif_usd??0),0); const totalCifIdr=items.reduce((v,x)=>v+(x.cif_idr??x.harga_penyerahan??0),0); return {document_type:'draft_exim',company_sender:sender,company_receiver:receiver,invoice_no:docs['380']||'',packing_list_no:docs['217']||'',surat_jalan:docs['640']||'',items,total_cif:cif,total_cif_currency:'IDR',total_cif_by_currency:{USD:totalCifUsd,IDR:totalCifIdr},total_gw:gw,total_nw:nw,package_type:packageType,package_quantity:packageQty};
 }
