@@ -69,19 +69,23 @@ export function crosscheck(invoice,pl,draft,sj=null){
     const ca=normCode(a.item_code),cb=normCode(b.item_code),cc=normCode(c.item_code);
     const na=normName(a.item_name),nb=normName(b.item_name),nc=normName(c.item_name);
     const cm=!!ca&&ca===cc&&(!b.item_code||!cb||ca===cb);
-    const nm=!!na&&na===nc&&(!b.item_name||!nb||na===nb);
+    // Item Name dinilai hanya dari Invoice vs Draft. Packing List tetap ditampilkan sebagai referensi, bukan penentu status nama.
+    const hasPrimaryName=!!na||!!nc;
+    const nm=!!na&&!!nc&&na===nc;
     const qm=eq(a.quantity,c.quantity)&&((b.quantity===null||b.quantity===undefined||b.quantity==='')||eq(b.quantity,c.quantity));
     const invoiceCurrency=a.price?.currency||invoice.total_cif_currency||'USD';
     const ap=pickPrice(a,invoiceCurrency),cp=pickPrice(c,invoiceCurrency);
     const pm=money(ap,cp);
     const gwm=eq(b.gross_weight,c.gross_weight);
     const nwm=eq(b.net_weight,c.net_weight);
-    codeOk&&=cm; nameOk&&=nm; qtyOk&&=qm; priceOk&&=pm; gwOk&&=gwm; nwOk&&=nwm;
-    if(cm&&!nm)notes.push(`Item No. ${i+1}: Item Code sama, tetapi Item Name berbeda.`);
+    codeOk&&=cm;
+    if (hasPrimaryName) nameOk&&=nm;
+    qtyOk&&=qm; priceOk&&=pm; gwOk&&=gwm; nwOk&&=nwm;
+    if(cm&&hasPrimaryName&&!nm)notes.push(`Item No. ${i+1}: Item Name Invoice dan Draft berbeda.`);
     if(!ca&&cc)notes.push(`Item No. ${i+1}: Item Code Draft tidak ditemukan di Invoice.`);
     if(ca&&!cc)notes.push(`Item No. ${i+1}: Item Code Invoice tidak ditemukan di Draft.`);
     if(ap?.currency&&cp?.currency&&ap.currency!==cp.currency)notes.push(`Item No. ${i+1}: Valuta harga berbeda (${ap.currency} vs ${cp.currency}).`);
-    details.push({sequence:i+1,invoice_code:a.item_code||'',pl_code:b.item_code||'',draft_code:c.item_code||'',invoice_name:a.item_name||'',pl_name:b.item_name||'',draft_name:c.item_name||'',invoice_quantity:a.quantity,draft_quantity:c.quantity,pl_quantity:b.quantity,invoice_price:ap?.value??null,invoice_currency:ap?.currency||'',draft_price:cp?.value??null,draft_currency:cp?.currency||'',pl_gross_weight:b.gross_weight??null,draft_gross_weight:c.gross_weight??null,pl_net_weight:b.net_weight??null,draft_net_weight:c.net_weight??null,item_code_status:cm?'MATCH':'NOT MATCH',item_code_cell_status:{invoice:ca===cc&&!!ca?'MATCH':'NOT MATCH',pl:(!cb||cb===cc)&&!!cc?'MATCH':'NOT MATCH',draft:cm?'MATCH':'NOT MATCH'},item_name_status:nm?'MATCH':'NOT MATCH',item_name_cell_status:{invoice:na===nc&&!!na?'MATCH':'NOT MATCH',pl:(!nb||nb===nc)&&!!nc?'MATCH':'NOT MATCH',draft:nm?'MATCH':'NOT MATCH'},quantity_status:qm?'MATCH':'NOT MATCH',price_status:pm?'MATCH':'NOT MATCH',gw_status:gwm?'MATCH':'NOT MATCH',nw_status:nwm?'MATCH':'NOT MATCH'});
+    details.push({sequence:i+1,invoice_code:a.item_code||'',pl_code:b.item_code||'',draft_code:c.item_code||'',invoice_name:a.item_name||'',pl_name:b.item_name||'',draft_name:c.item_name||'',invoice_quantity:a.quantity,draft_quantity:c.quantity,pl_quantity:b.quantity,invoice_price:ap?.value??null,invoice_currency:ap?.currency||'',draft_price:cp?.value??null,draft_currency:cp?.currency||'',pl_gross_weight:b.gross_weight??null,draft_gross_weight:c.gross_weight??null,pl_net_weight:b.net_weight??null,draft_net_weight:c.net_weight??null,item_code_status:cm?'MATCH':'NOT MATCH',item_code_cell_status:{invoice:ca===cc&&!!ca?'MATCH':'NOT MATCH',pl:(!cb||cb===cc)&&!!cc?'MATCH':'NOT MATCH',draft:cm?'MATCH':'NOT MATCH'},item_name_status:nm?'MATCH':'NOT MATCH',item_name_cell_status:{invoice:na===nc&&!!na&&!!nc?'MATCH':'NOT MATCH',pl:'INFO',draft:nm?'MATCH':'NOT MATCH'},quantity_status:qm?'MATCH':'NOT MATCH',price_status:pm?'MATCH':'NOT MATCH',gw_status:gwm?'MATCH':'NOT MATCH',nw_status:nwm?'MATCH':'NOT MATCH'});
   });
   checks.item_code=codeOk?'MATCH':'NOT MATCH'; checks.item_name=nameOk?'MATCH':'NOT MATCH'; checks.quantity=qtyOk?'MATCH':'NOT MATCH'; checks.item_price=priceOk?'MATCH':'NOT MATCH'; checks.item_gw=gwOk?'MATCH':'NOT MATCH'; checks.item_nw=nwOk?'MATCH':'NOT MATCH';
   const decisive=['company','invoice_number','packing_list_number','surat_jalan','total_cif','total_gw','total_nw','package','item_code','item_name','quantity','item_price','item_gw','item_nw'];

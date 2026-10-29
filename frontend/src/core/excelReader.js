@@ -19,7 +19,14 @@ export function normCompany(value) {
   return cleanText(value).toUpperCase().replace(/^PT\.?\s*/, '').trim();
 }
 export function normCode(value) { return cleanText(value).toUpperCase(); }
-export function normName(value) { return cleanText(value).toUpperCase(); }
+// Normalisasi khusus untuk perbandingan nama barang; teks asli tetap disimpan/ditampilkan.
+// cleanText menghapus spasi awal/akhir, merapatkan spasi berulang, dan mengubah newline/tab menjadi spasi.
+// Pada dokumen CPMI, 'Open Cell' dan 'OpenCell' merujuk frasa material yang sama.
+export function normName(value) {
+  return cleanText(value)
+    .toUpperCase()
+    .replace(/\bOPEN\s+CELL\b/g, 'OPENCELL');
+}
 
 export function toNumber(value) {
   if (value === null || value === undefined || value === '') return null;
