@@ -96,17 +96,35 @@ export function resolveColumn(headers, mapping, field) {
 }
 
 export function findInlineValue(rows, labels) {
-  const wanted = labels.map(x => x.toUpperCase());
-  for (const row of rows.slice(0, 25)) {
+  const wanted = labels.map(x => cleanText(x).toUpperCase());
+  for (const row of rows.slice(0, 30)) {
     for (let i = 0; i < row.length; i++) {
-      const v = cleanText(row[i]);
-      const up = v.toUpperCase();
+      const raw = row[i] == null ? '' : String(row[i]);
+      const normalized = cleanText(raw);
+      const up = normalized.toUpperCase();
       for (const label of wanted) {
         if (!up.startsWith(label)) continue;
-        const rest = v.slice(label.length).replace(/^\s*[:#-]?\s*/, '');
-        if (rest) return rest.match(/[A-Z0-9][A-Z0-9._/-]{3,}/i)?.[1] || rest;
-        if (row[i + 1]) return cleanText(row[i + 1]);
+        const rest = normalized.slice(label.length).replace(/^\s*[:#-]?\s*/, '');
+        const firstLine = rest.split(/\r?\n/)[0].trim();
+        const bounded = firstLine.split(/\b(?:DATE|DUE DATE|PO\s*NO\.?|NO\.?\s*KONTRAK|TANGGAL KONTRAK)\s*:/i)[0].trim();
+        const token = bounded.match(/[A-Z0-9][A-Z0-9._/-]{3,}/i)?.[0];
+        if (token) return token.replace(/[,:;]+$/, '');
+        if (row[i + 1]) return cleanText(row[i + 1]).split(/\r?\n/)[0].trim();
       }
+    }
+  }
+  return '';
+}
+
+export function findInlineDate(rows) {
+  for (const row of rows.slice(0, 30)) {
+    for (const cell of row) {
+      if (cell === null || cell === undefined) continue;
+      const raw = String(cell);
+      const match = raw.match(/(?:^|\n)\s*DATE\s*:\s*([^\r\n]+)/i);
+      if (!match) continue;
+      const date = match[1].split(/\bDUE DATE\s*:/i)[0].trim();
+      if (date) return date;
     }
   }
   return '';
